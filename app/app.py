@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import json
 import time
-# Trigger CI workflow - ubuntu-24.04-arm
+# Trigger CI workflow - SSE fix rebuild
 import boto3
 from botocore.exceptions import ClientError
 
