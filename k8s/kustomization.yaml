@@ -6,7 +6,3 @@ resources:
   - service.yaml
   - postgres.yaml
   - irsa-serviceaccount.yaml
-
-commonLabels:
-  app: q-profile-vending
-  version: v1.0.0
