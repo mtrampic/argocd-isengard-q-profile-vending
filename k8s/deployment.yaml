@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: q-profile-vending
+  labels:
+    app: q-profile-vending
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: q-profile-vending
+  template:
+    metadata:
+      labels:
+        app: q-profile-vending
+    spec:
+      imagePullSecrets:
+      - name: dockerhub-secret
+      containers:
+      - name: q-profile-vending
+        image: mtrampic/q-profile-vending:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ADMIN_PASSWORD
+          value: "vending123"
+        - name: SECRET_KEY
+          value: "k3s-production-secret-key-2025"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
