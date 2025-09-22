@@ -19,7 +19,7 @@ spec:
       - name: dockerhub-secret
       containers:
       - name: q-profile-vending
-        image: mtrampic/q-profile-vending:88fea456bc9c3a20e162e64effaca94fda29f09c
+        image: mtrampic/q-profile-vending:5baa49c418f912b124f7812e16c3dc942656d4d6
         ports:
         - containerPort: 8080
         env:
