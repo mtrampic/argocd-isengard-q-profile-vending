@@ -178,10 +178,12 @@ def health():
     return {'status': 'healthy', 'service': 'q-profile-vending'}
 
 def init_db_with_retry(max_retries=30, delay=2):
-    """Initialize database with retry logic"""
+    """Initialize database with retry logic and handle schema migrations"""
     for attempt in range(max_retries):
         try:
             with app.app_context():
+                # Drop and recreate tables to handle schema changes
+                db.drop_all()
                 db.create_all()
             print("Database initialized successfully")
             return
