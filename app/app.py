@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
-# Trigger CI workflow - GitHub ARM64 runners
+# Trigger CI workflow - ubuntu-24.04-arm
 import boto3
 from botocore.exceptions import ClientError
 
