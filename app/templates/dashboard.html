@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Q Profile Vending - Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 1200px; margin: 50px auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
@@ -106,22 +105,30 @@
     </div>
 
     <script>
-        const socket = io();
         const statusEl = document.getElementById('connection-status');
         const userForm = document.getElementById('user-form');
         const usersTable = document.getElementById('users-table').getElementsByTagName('tbody')[0];
 
-        socket.on('connect', function() {
+        // Server-Sent Events connection
+        const eventSource = new EventSource('/events');
+        
+        eventSource.onopen = function() {
+            statusEl.textContent = 'Connected';
+            statusEl.className = 'status connected';
+        };
+        
+        eventSource.onerror = function() {
+            statusEl.textContent = 'Disconnected';
+            statusEl.className = 'status disconnected';
+        };
+        
+        eventSource.addEventListener('connected', function(e) {
             statusEl.textContent = 'Connected';
             statusEl.className = 'status connected';
         });
-
-        socket.on('disconnect', function() {
-            statusEl.textContent = 'Disconnected';
-            statusEl.className = 'status disconnected';
-        });
-
-        socket.on('user_created', function(user) {
+        
+        eventSource.addEventListener('user_created', function(e) {
+            const user = JSON.parse(e.data);
             const row = usersTable.insertRow(0);
             row.innerHTML = `
                 <td>${user.id}</td>

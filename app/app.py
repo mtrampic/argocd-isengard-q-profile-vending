@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from flask_socketio import SocketIO, emit
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from datetime import datetime
 import os
+import json
+import time
 # Trigger CI workflow - ubuntu-24.04-arm
 import boto3
 from botocore.exceptions import ClientError
@@ -15,8 +15,11 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@po
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Store for SSE connections
+sse_connections = []
 
 # User model
 class User(db.Model):
@@ -50,6 +53,37 @@ def get_aws_caller_identity():
         }
     except Exception as e:
         return {'error': str(e)}
+
+def broadcast_sse(event, data):
+    """Broadcast data to all SSE connections"""
+    message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    # Remove closed connections
+    global sse_connections
+    sse_connections = [conn for conn in sse_connections if not conn.closed]
+    # Send to active connections
+    for conn in sse_connections:
+        try:
+            conn.write(message)
+        except:
+            pass
+
+@app.route('/events')
+def events():
+    """Server-Sent Events endpoint"""
+    def event_stream():
+        # Send initial connection event
+        yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
+        
+        # Keep connection alive
+        while True:
+            yield f"event: heartbeat\ndata: {json.dumps({'timestamp': time.time()})}\n\n"
+            time.sleep(30)
+    
+    response = Response(event_stream(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Connection'] = 'keep-alive'
+    sse_connections.append(response)
+    return response
 
 @app.route('/')
 def index():
@@ -103,8 +137,8 @@ def create_user():
         db.session.add(user)
         db.session.commit()
         
-        # Emit real-time update
-        socketio.emit('user_created', user.to_dict())
+        # Broadcast via SSE
+        broadcast_sse('user_created', user.to_dict())
         
         return jsonify(user.to_dict()), 201
         
@@ -143,12 +177,7 @@ def create_identity_center_user(username, email, first_name, last_name):
 def health():
     return {'status': 'healthy', 'service': 'q-profile-vending'}
 
-@socketio.on('connect')
-def handle_connect():
-    if 'logged_in' in session:
-        emit('connected', {'status': 'Connected to Q Profile Vending'})
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    socketio.run(app, host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=8080, debug=False)
