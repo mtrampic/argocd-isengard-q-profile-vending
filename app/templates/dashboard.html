@@ -26,7 +26,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>Q Profile Vending System</h1>
+        <h1>Q Profile Vending System - {{ user_role.title() }}</h1>
         <div>
             <span id="connection-status" class="status disconnected">Disconnected</span>
             <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
@@ -39,10 +39,33 @@
                 <div class="alert alert-{{ category }}">{{ message }}</div>
             {% endfor %}
         {% endif %}
+    
+    {% if user_role == 'admin' %}
+    <div class="card">
+        <h3>AWS Credentials Configuration</h3>
+        <form id="aws-credentials-form">
+            <div class="form-group">
+                <label for="access_key">AWS Access Key ID:</label>
+                <input type="text" id="access_key" name="access_key" required>
+            </div>
+            <div class="form-group">
+                <label for="secret_key">AWS Secret Access Key:</label>
+                <input type="password" id="secret_key" name="secret_key" required>
+            </div>
+            <div class="form-group">
+                <label for="identity_store_id">Identity Store ID:</label>
+                <input type="text" id="identity_store_id" name="identity_store_id" placeholder="d-xxxxxxxxxx" required>
+            </div>
+            <button type="submit" class="btn">Update AWS Credentials</button>
+        </form>
+    </div>
+    {% endif %}
+    
+    {% if user_role == 'participant' %}
     {% endwith %}
     
     <div class="card">
-        <h3>Create New User</h3>
+        <h3>Create New User in AWS Identity Center</h3>
         <form id="user-form">
             <div class="form-group">
                 <label for="username">Username:</label>
@@ -52,9 +75,18 @@
                 <label for="email">Email:</label>
                 <input type="email" id="email" name="email" required>
             </div>
-            <button type="submit" class="btn">Create User</button>
+            <div class="form-group">
+                <label for="first_name">First Name:</label>
+                <input type="text" id="first_name" name="first_name">
+            </div>
+            <div class="form-group">
+                <label for="last_name">Last Name:</label>
+                <input type="text" id="last_name" name="last_name">
+            </div>
+            <button type="submit" class="btn">Create User in Identity Center</button>
         </form>
     </div>
+    {% endif %}
     
     <div class="card">
         <h3>Users ({{ users|length }} total)</h3>
@@ -64,6 +96,7 @@
                     <th>ID</th>
                     <th>Username</th>
                     <th>Email</th>
+                    <th>AWS User ID</th>
                     <th>Created At</th>
                 </tr>
             </thead>
@@ -73,6 +106,7 @@
                     <td>{{ user.id }}</td>
                     <td>{{ user.username }}</td>
                     <td>{{ user.email }}</td>
+                    <td>{{ user.aws_user_id or 'N/A' }}</td>
                     <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                 </tr>
                 {% endfor %}
@@ -84,6 +118,7 @@
         const socket = io();
         const statusEl = document.getElementById('connection-status');
         const userForm = document.getElementById('user-form');
+        const awsCredentialsForm = document.getElementById('aws-credentials-form');
         const usersTable = document.getElementById('users-table').getElementsByTagName('tbody')[0];
 
         socket.on('connect', function() {
@@ -102,19 +137,57 @@
                 <td>${user.id}</td>
                 <td>${user.username}</td>
                 <td>${user.email}</td>
+                <td>${user.aws_user_id || 'N/A'}</td>
                 <td>${new Date(user.created_at).toLocaleString()}</td>
             `;
             row.style.backgroundColor = '#d4edda';
             setTimeout(() => row.style.backgroundColor = '', 2000);
         });
 
-        userForm.addEventListener('submit', async function(e) {
+        // AWS Credentials form handler
+        if (awsCredentialsForm) {
+            awsCredentialsForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(awsCredentialsForm);
+                const credentialsData = {
+                    access_key: formData.get('access_key'),
+                    secret_key: formData.get('secret_key'),
+                    identity_store_id: formData.get('identity_store_id')
+                };
+
+                try {
+                    const response = await fetch('/api/aws-credentials', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(credentialsData)
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert('AWS credentials updated successfully!');
+                        awsCredentialsForm.reset();
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                } catch (error) {
+                    alert('Error updating credentials: ' + error.message);
+                }
+            });
+        }
+
+        // User creation form handler
+        if (userForm) {
             e.preventDefault();
             
             const formData = new FormData(userForm);
             const userData = {
                 username: formData.get('username'),
-                email: formData.get('email')
+                email: formData.get('email'),
+                first_name: formData.get('first_name'),
+                last_name: formData.get('last_name')
             };
 
             try {
@@ -136,6 +209,7 @@
                 alert('Error creating user: ' + error.message);
             }
         });
+        }
     </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ resources:
   - deployment.yaml
   - service.yaml
   - postgres.yaml
+  - irsa-serviceaccount.yaml
 
 commonLabels:
   app: q-profile-vending

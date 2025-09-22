@@ -14,6 +14,7 @@ spec:
       labels:
         app: q-profile-vending
     spec:
+      serviceAccountName: q-profile-vending-irsa
       imagePullSecrets:
       - name: dockerhub-secret
       containers:
@@ -23,7 +24,9 @@ spec:
         - containerPort: 8080
         env:
         - name: ADMIN_PASSWORD
-          value: "vending123"
+          value: "admin123"
+        - name: PARTICIPANT_PASSWORD
+          value: "participant123"
         - name: SECRET_KEY
           value: "k3s-production-secret-key-2025"
         - name: DATABASE_URL
