@@ -26,6 +26,8 @@ spec:
           value: "vending123"
         - name: SECRET_KEY
           value: "k3s-production-secret-key-2025"
+        - name: DATABASE_URL
+          value: "postgresql://postgres:postgres@postgres-service:5432/qprofiles"
         livenessProbe:
           httpGet:
             path: /health

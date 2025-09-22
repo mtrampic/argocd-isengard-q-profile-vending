@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
+  - postgres.yaml
 
 commonLabels:
   app: q-profile-vending
