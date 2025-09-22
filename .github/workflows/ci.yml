@@ -5,6 +5,9 @@ on:
     branches: [master]
     paths: ['app/**']
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: [self-hosted, arm64, k3s]
