@@ -177,7 +177,22 @@ def create_identity_center_user(username, email, first_name, last_name):
 def health():
     return {'status': 'healthy', 'service': 'q-profile-vending'}
 
+def init_db_with_retry(max_retries=30, delay=2):
+    """Initialize database with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            with app.app_context():
+                db.create_all()
+            print("Database initialized successfully")
+            return
+        except Exception as e:
+            print(f"Database connection attempt {attempt + 1}/{max_retries} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+            else:
+                print("Failed to connect to database after all retries")
+                raise
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
+    init_db_with_retry()
     app.run(host='0.0.0.0', port=8080, debug=False)
