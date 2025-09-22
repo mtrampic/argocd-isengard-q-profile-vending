@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/mtrampic/argocd-isengard-q-profile-vending
-    targetRevision: main
+    targetRevision: master
     path: k8s
   destination:
     server: https://kubernetes.default.svc
