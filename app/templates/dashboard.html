@@ -76,6 +76,7 @@
         <h1>Q Profile Vending System</h1>
         <div>
             <span id="connection-status" class="status disconnected">Disconnected</span>
+            <button onclick="togglePolling()" class="btn" style="font-size: 12px; padding: 5px 10px; margin-left: 10px;">Force Polling</button>
             <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
         </div>
     </div>
@@ -171,19 +172,23 @@
                 eventSource.close();
             }
 
+            console.log('🔌 Connecting to SSE...');
             eventSource = new EventSource('/events');
             
             eventSource.onopen = function() {
+                console.log('✅ SSE Connected');
                 statusEl.textContent = 'Connected (SSE)';
                 statusEl.className = 'status connected';
                 // Clear fallback polling if SSE is working
                 if (fallbackInterval) {
                     clearInterval(fallbackInterval);
                     fallbackInterval = null;
+                    console.log('🛑 Stopped fallback polling - SSE working');
                 }
             };
             
-            eventSource.onerror = function() {
+            eventSource.onerror = function(error) {
+                console.error('❌ SSE Error:', error);
                 statusEl.textContent = 'Disconnected - Using Fallback';
                 statusEl.className = 'status disconnected';
                 // Start fallback polling
@@ -191,20 +196,30 @@
             };
             
             eventSource.addEventListener('connected', function(e) {
+                console.log('🎉 SSE Connected event received:', e.data);
                 statusEl.textContent = 'Connected (SSE)';
                 statusEl.className = 'status connected';
             });
             
             eventSource.addEventListener('user_created', function(e) {
-                console.log('User created event received:', e.data);
+                console.log('👤 User created event received:', e.data);
                 const user = JSON.parse(e.data);
                 addUserToTable(user);
             });
 
             eventSource.addEventListener('user_deleted', function(e) {
-                console.log('User deleted event received:', e.data);
+                console.log('🗑️ User deleted event received:', e.data);
                 const data = JSON.parse(e.data);
                 removeUserFromTable(data.id);
+            });
+
+            eventSource.addEventListener('heartbeat', function(e) {
+                console.log('💓 Heartbeat received:', e.data);
+            });
+
+            // Add message listener for any other events
+            eventSource.addEventListener('message', function(e) {
+                console.log('📨 SSE Message received:', e.data);
             });
         }
 
@@ -212,17 +227,22 @@
         function startFallbackPolling() {
             if (fallbackInterval) return; // Already running
             
+            console.log('🔄 Starting fallback polling...');
             fallbackInterval = setInterval(async () => {
                 try {
+                    console.log('📡 Polling for updates...');
                     const response = await fetch('/api/users');
                     if (response.ok) {
                         const users = await response.json();
+                        console.log(`📊 Received ${users.length} users from polling`);
                         refreshUserTable(users);
                         statusEl.textContent = 'Connected (Polling)';
                         statusEl.className = 'status connected';
+                    } else {
+                        console.error('❌ Polling failed:', response.status);
                     }
                 } catch (error) {
-                    console.error('Polling failed:', error);
+                    console.error('❌ Polling error:', error);
                     statusEl.textContent = 'Connection Failed';
                     statusEl.className = 'status disconnected';
                 }
@@ -230,7 +250,16 @@
         }
 
         function addUserToTable(user) {
+            console.log('➕ Adding user to table:', user);
             const tbody = document.querySelector('#users-table tbody');
+            
+            // Check if user already exists
+            const existingRow = document.getElementById(`user-${user.id}`);
+            if (existingRow) {
+                console.log('⚠️ User already exists in table, skipping:', user.id);
+                return;
+            }
+            
             const row = tbody.insertRow(0);
             row.id = `user-${user.id}`;
             row.innerHTML = `
@@ -245,31 +274,42 @@
             row.style.backgroundColor = '#d4edda';
             setTimeout(() => row.style.backgroundColor = '', 2000);
             
+            console.log('✅ User added to table successfully');
+            
             // Update counter
             updateUserCount();
         }
 
         function removeUserFromTable(userId) {
+            console.log('🗑️ Removing user from table:', userId);
             const row = document.getElementById(`user-${userId}`);
             if (row) {
                 row.style.backgroundColor = '#f8d7da';
                 setTimeout(() => {
                     row.remove();
                     updateUserCount();
+                    console.log('✅ User removed from table successfully');
                 }, 1000);
+            } else {
+                console.warn('⚠️ User row not found in table:', userId);
             }
         }
 
         function refreshUserTable(users) {
+            console.log(`🔄 Refreshing user table with ${users.length} users`);
             const tbody = document.querySelector('#users-table tbody');
             const currentIds = Array.from(tbody.querySelectorAll('tr')).map(row => 
                 parseInt(row.id.replace('user-', ''))
-            );
+            ).filter(id => !isNaN(id));
             const newIds = users.map(user => user.id);
+            
+            console.log('📊 Current table IDs:', currentIds);
+            console.log('📊 New data IDs:', newIds);
             
             // Add new users
             users.forEach(user => {
                 if (!currentIds.includes(user.id)) {
+                    console.log('➕ Adding new user from polling:', user.id);
                     addUserToTable(user);
                 }
             });
@@ -277,9 +317,12 @@
             // Remove deleted users
             currentIds.forEach(id => {
                 if (!newIds.includes(id)) {
+                    console.log('🗑️ Removing deleted user from polling:', id);
                     removeUserFromTable(id);
                 }
             });
+            
+            console.log('✅ Table refresh complete');
         }
 
         function updateUserCount() {
@@ -353,6 +396,24 @@
         // Initialize connection
         connectSSE();
 
+        // Start a safety polling mechanism (every 30 seconds) to ensure table stays in sync
+        // This is in addition to SSE for maximum reliability
+        setInterval(async () => {
+            // Only poll if we don't have an active SSE connection
+            if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+                console.log('🔄 Safety poll - SSE not connected');
+                try {
+                    const response = await fetch('/api/users');
+                    if (response.ok) {
+                        const users = await response.json();
+                        refreshUserTable(users);
+                    }
+                } catch (error) {
+                    console.error('❌ Safety poll failed:', error);
+                }
+            }
+        }, 30000); // Every 30 seconds
+
         // Reconnect on window focus (in case connection was lost)
         window.addEventListener('focus', () => {
             if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
@@ -387,6 +448,18 @@
                     element.classList.remove('copied');
                 }, 1000);
             });
+        }
+
+        // Force polling toggle for testing
+        function togglePolling() {
+            if (fallbackInterval) {
+                clearInterval(fallbackInterval);
+                fallbackInterval = null;
+                console.log('🛑 Forced polling stopped');
+            } else {
+                startFallbackPolling();
+                console.log('🔄 Forced polling started');
+            }
         }
     </script>
 </body>

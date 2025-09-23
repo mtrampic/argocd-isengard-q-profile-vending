@@ -47,46 +47,69 @@ LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'vending123')
 def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
-    print(f"SSE broadcast: {event} - {data}")
+    print(f"🔔 SSE broadcast: {event} - {data}")
+    print(f"📊 Current events list length: {len(sse_events)}")
+    
     # Add event to global events list with timestamp
-    sse_events.append({
+    event_entry = {
         'event': event,
         'data': data,
-        'timestamp': time.time()
-    })
+        'timestamp': time.time(),
+        'id': len(sse_events)  # Simple incrementing ID
+    }
+    sse_events.append(event_entry)
+    
+    print(f"✅ Event added to broadcast list: {event_entry}")
+    
     # Keep only last 100 events to prevent memory growth
     if len(sse_events) > 100:
-        sse_events.pop(0)
+        removed = sse_events.pop(0)
+        print(f"🗑️ Removed old event: {removed}")
 
 @app.route('/events')
 def events():
     """Server-Sent Events endpoint"""
+    connection_id = f"conn_{int(time.time() * 1000)}"
+    print(f"🔌 New SSE connection: {connection_id}")
+    
     def event_stream():
         # Send initial connection event
-        yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
+        initial_msg = f"event: connected\ndata: {json.dumps({'status': 'connected', 'connection_id': connection_id})}\n\n"
+        print(f"📤 Sending initial connection event to {connection_id}")
+        yield initial_msg
         
         last_heartbeat = time.time()
         last_event_index = len(sse_events)  # Start from current position
+        print(f"📍 {connection_id} starting from event index: {last_event_index}")
         
         while True:
             try:
                 # Send any new events that occurred since last check
                 current_event_count = len(sse_events)
                 if current_event_count > last_event_index:
+                    print(f"📨 {connection_id} sending {current_event_count - last_event_index} new events")
                     for i in range(last_event_index, current_event_count):
                         event_data = sse_events[i]
-                        yield f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
+                        message = f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
+                        print(f"📤 {connection_id} sending: {event_data['event']} - {event_data['data']}")
+                        yield message
                     last_event_index = current_event_count
                 
                 # Send heartbeat every 30 seconds
                 current_time = time.time()
                 if current_time - last_heartbeat > 30:
-                    yield f"event: heartbeat\ndata: {json.dumps({'timestamp': current_time})}\n\n"
+                    heartbeat_msg = f"event: heartbeat\ndata: {json.dumps({'timestamp': current_time, 'connection_id': connection_id})}\n\n"
+                    print(f"💓 {connection_id} sending heartbeat")
+                    yield heartbeat_msg
                     last_heartbeat = current_time
                 
                 time.sleep(1)  # Small delay to prevent busy waiting
                 
             except GeneratorExit:
+                print(f"🔌 SSE connection closed: {connection_id}")
+                break
+            except Exception as e:
+                print(f"❌ SSE error for {connection_id}: {e}")
                 break
     
     response = Response(event_stream(), mimetype='text/event-stream')
