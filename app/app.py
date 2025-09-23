@@ -57,15 +57,17 @@ def get_aws_caller_identity():
 def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
-    # Remove closed connections
+    # Send to active connections (remove error-prone closed check)
     global sse_connections
-    sse_connections = [conn for conn in sse_connections if not conn.closed]
-    # Send to active connections
+    active_connections = []
     for conn in sse_connections:
         try:
             conn.write(message)
+            active_connections.append(conn)
         except:
+            # Connection is closed, skip it
             pass
+    sse_connections = active_connections
 
 @app.route('/events')
 def events():
