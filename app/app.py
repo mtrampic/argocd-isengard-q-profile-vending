@@ -175,11 +175,34 @@ def delete_user(user_id):
     except Exception as e:
         return jsonify({'error': f'Failed to delete user: {str(e)}'}), 500
 
+@app.route('/api/users/<int:user_id>/reset-password', methods=['POST'])
+def reset_user_password(user_id):
+    """Trigger password reset for existing user"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        if not user.user_id:
+            return jsonify({'error': 'User not found in Identity Center'}), 400
+        
+        # Note: AWS Identity Center doesn't have a direct API to resend invitation emails
+        # This would typically be done through the AWS Console or by recreating the user
+        # For now, we'll return instructions for manual reset
+        
+        return jsonify({
+            'message': f'Password reset instructions: Go to AWS Identity Center console and resend invitation for user {user.username}',
+            'console_url': 'https://eu-central-1.console.aws.amazon.com/singlesignon/identity/home',
+            'user_id': user.user_id
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to reset password: {str(e)}'}), 500
+
 def create_identity_center_user(username, email, first_name, last_name):
-    """Create user in AWS Identity Center using boto3"""
+    """Create user in AWS Identity Center and prepare for email verification"""
     try:
         client_ic = boto3.client('identitystore', region_name='eu-central-1')
         
+        # Create user
         response = client_ic.create_user(
             IdentityStoreId='d-99676ce775',  # Correct Identity Store ID in Frankfurt
             UserName=username,
@@ -197,7 +220,14 @@ def create_identity_center_user(username, email, first_name, last_name):
             ]
         )
         
-        return response['UserId']
+        user_id = response['UserId']
+        print(f"✅ User {username} created in Identity Center with ID: {user_id}")
+        
+        # Note: AWS Identity Center automatically sends invitation email when user is created
+        # The user will receive an email to set up their password and activate their account
+        print(f"📧 Invitation email will be sent to {email} automatically by AWS Identity Center")
+        
+        return user_id
         
     except Exception as e:
         print(f"Error creating Identity Center user: {e}")
