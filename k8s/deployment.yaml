@@ -27,7 +27,7 @@ spec:
         - containerPort: 8080
         env:
         - name: LOGIN_PASSWORD
-          value: "vending123"
+          value: "RaiffeisenInformatik2025!"
         - name: SECRET_KEY
           value: "k3s-production-secret-key-2025"
         - name: DATABASE_URL

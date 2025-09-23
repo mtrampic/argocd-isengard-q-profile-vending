@@ -13,7 +13,7 @@ A secure Flask web application for Q profile management, deployed on Kubernetes 
 ## Access
 
 - **URL**: https://q-profile-vending.trampic.info
-- **Password**: `vending123`
+- **Password**: `RaiffeisenInformatik2025!`
 
 ## Architecture
 

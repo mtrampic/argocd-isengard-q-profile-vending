@@ -44,7 +44,7 @@ class User(db.Model):
         }
 
 # Single password authentication
-LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'vending123')
+LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'RaiffeisenInformatik2025!')
 
 def broadcast_sse(event, data):
     """Broadcast data to all SSE connections using thread-safe approach"""
