@@ -177,22 +177,50 @@ def delete_user(user_id):
 
 @app.route('/api/users/<int:user_id>/reset-password', methods=['POST'])
 def reset_user_password(user_id):
-    """Trigger password reset for existing user"""
+    """Reset user password by recreating the user (triggers new invitation email)"""
     try:
         user = User.query.get_or_404(user_id)
         
         if not user.aws_user_id:
             return jsonify({'error': 'User not found in Identity Center'}), 400
         
-        # Note: AWS Identity Center doesn't have a direct API to resend invitation emails
-        # This would typically be done through the AWS Console or by recreating the user
-        # For now, we'll return instructions for manual reset
-        
-        return jsonify({
-            'message': f'Password reset instructions: Go to AWS Identity Center console and resend invitation for user {user.username}',
-            'console_url': 'https://eu-central-1.console.aws.amazon.com/singlesignon/identity/home',
-            'aws_user_id': user.aws_user_id
-        }), 200
+        # Identity Center doesn't have admin_reset_user_password
+        # The only way to trigger a new invitation email is to delete and recreate the user
+        try:
+            client_ic = boto3.client('identitystore', region_name='eu-central-1')
+            
+            # Get current user details before deletion
+            current_user = client_ic.describe_user(
+                IdentityStoreId='d-99676ce775',
+                UserId=user.aws_user_id
+            )
+            
+            # Delete existing user
+            client_ic.delete_user(
+                IdentityStoreId='d-99676ce775',
+                UserId=user.aws_user_id
+            )
+            
+            # Recreate user (this triggers new invitation email)
+            response = client_ic.create_user(
+                IdentityStoreId='d-99676ce775',
+                UserName=current_user['UserName'],
+                Name=current_user['Name'],
+                DisplayName=current_user.get('DisplayName', current_user['UserName']),
+                Emails=current_user.get('Emails', [])
+            )
+            
+            # Update database with new AWS user ID
+            user.aws_user_id = response['UserId']
+            db.session.commit()
+            
+            return jsonify({
+                'message': f'Password reset successful. New invitation email sent to {user.email}',
+                'new_aws_user_id': response['UserId']
+            }), 200
+            
+        except Exception as e:
+            return jsonify({'error': f'Failed to reset password via Identity Center: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': f'Failed to reset password: {str(e)}'}), 500
