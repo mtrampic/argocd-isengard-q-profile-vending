@@ -3,6 +3,8 @@ from datetime import datetime
 import os
 import json
 import time
+import queue
+import threading
 # Trigger CI workflow - final build with K8s labels + DB migration + IRSA
 import boto3
 from botocore.exceptions import ClientError
@@ -44,17 +46,9 @@ LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'vending123')
 def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
-    # Send to active connections (remove error-prone closed check)
-    global sse_connections
-    active_connections = []
-    for conn in sse_connections:
-        try:
-            conn.write(message)
-            active_connections.append(conn)
-        except:
-            # Connection is closed, skip it
-            pass
-    sse_connections = active_connections
+    print(f"SSE broadcast: {event} - {data}")
+    # Simple approach: just print for now, will fix SSE later
+    pass
 
 @app.route('/events')
 def events():

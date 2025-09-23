@@ -188,6 +188,8 @@
 
                 if (response.ok) {
                     userForm.reset();
+                    // Refresh page to show new user
+                    window.location.reload();
                 } else {
                     const error = await response.json();
                     alert('Error: ' + error.error);
