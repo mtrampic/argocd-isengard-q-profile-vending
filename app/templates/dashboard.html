@@ -89,25 +89,16 @@
         <p><small>This will provide you with temporary AWS account access for the workshop.</small></p>
     </div>
 
-    <div class="instructions">
-        <h3>📋 Setup Instructions</h3>
-        <p>Once your user is created and visible in the table below, please follow these steps:</p>
-        <ol>
-            <li>Go to <span class="copy-value" onclick="copyToClipboard(this)">https://trampic-isengard.awsapps.com/start</span> and login with your username</li>
-            <li>You will receive an email with an OTP code for activation</li>
-            <li>For Q CLI login setup:
-                <ul>
-                    <li>Select option: <strong>"Use with Pro license"</strong></li>
-                    <li>Enter Start URL: <span class="copy-value" onclick="copyToClipboard(this)">https://trampic-isengard.awsapps.com/start</span></li>
-                    <li>Enter Region: <span class="copy-value" onclick="copyToClipboard(this)">eu-central-1</span></li>
-                </ul>
-            </li>
-        </ol>
-        <p><small>💡 <strong>Tip:</strong> Click on the gray boxes above to copy values to your clipboard</small></p>
-    </div>
-
-    <div class="card" style="margin-top: 30px;">
-        <h3>🚀 Expert Guidance: Model Context Protocol (MCP)</h3>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="card">
+        <h3>Create New User in AWS Identity Center</h3>
         <div style="background: #e7f3ff; border-left: 4px solid #007bff; padding: 20px; margin: 15px 0; border-radius: 4px;">
             
             <div style="text-align: center; margin: 0 0 20px 0;">
@@ -246,6 +237,23 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 Setup Instructions</h3>
+        <p>Once your user is created and visible in the table above, please follow these steps:</p>
+        <ol>
+            <li>Go to <span class="copy-value" onclick="copyToClipboard(this)">https://trampic-isengard.awsapps.com/start</span> and login with your username</li>
+            <li>You will receive an email with an OTP code for activation</li>
+            <li>For Q CLI login setup:
+                <ul>
+                    <li>Select option: <strong>"Use with Pro license"</strong></li>
+                    <li>Enter Start URL: <span class="copy-value" onclick="copyToClipboard(this)">https://trampic-isengard.awsapps.com/start</span></li>
+                    <li>Enter Region: <span class="copy-value" onclick="copyToClipboard(this)">eu-central-1</span></li>
+                </ul>
+            </li>
+        </ol>
+        <p><small>💡 <strong>Tip:</strong> Click on the gray boxes above to copy values to your clipboard</small></p>
     </div>
 
     <script>
