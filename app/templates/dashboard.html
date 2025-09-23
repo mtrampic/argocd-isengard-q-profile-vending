@@ -98,6 +98,19 @@
         </ol>
         <p><small>💡 <strong>Tip:</strong> Click on the gray boxes above to copy values to your clipboard</small></p>
     </div>
+
+    <div class="instructions">
+        <h3>🧠 Context Engineering Best Practices</h3>
+        <p>Before working with Q CLI, read this important blog post: <a href="https://blog.langchain.com/the-rise-of-context-engineering/" target="_blank" style="color: #007bff;">The Rise of Context Engineering</a></p>
+        <blockquote style="border-left: 3px solid #007bff; padding-left: 15px; margin: 15px 0; font-style: italic; color: #666;">
+            <strong>Why is context engineering important:</strong><br>
+            When agentic systems mess up, it's largely because an LLM messes up. More often than not, model mistakes are caused by inappropriate context. The context passed to the model may be bad because:
+            <ul style="margin: 10px 0;">
+                <li>There is missing context that the model needs to make the right decision</li>
+                <li>The context is formatted poorly - communication matters for LLMs just like humans</li>
+            </ul>
+        </blockquote>
+    </div>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
