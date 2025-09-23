@@ -152,13 +152,13 @@ def delete_user(user_id):
     try:
         user = User.query.get_or_404(user_id)
         
-        # Delete from AWS Identity Center if user_id exists
-        if user.user_id:
+        # Delete from AWS Identity Center if aws_user_id exists
+        if user.aws_user_id:
             try:
                 client_ic = boto3.client('identitystore', region_name='eu-central-1')
                 client_ic.delete_user(
                     IdentityStoreId='d-99676ce775',
-                    UserId=user.user_id
+                    UserId=user.aws_user_id
                 )
             except Exception as e:
                 print(f"Warning: Failed to delete from Identity Center: {e}")
@@ -181,7 +181,7 @@ def reset_user_password(user_id):
     try:
         user = User.query.get_or_404(user_id)
         
-        if not user.user_id:
+        if not user.aws_user_id:
             return jsonify({'error': 'User not found in Identity Center'}), 400
         
         # Note: AWS Identity Center doesn't have a direct API to resend invitation emails
@@ -191,7 +191,7 @@ def reset_user_password(user_id):
         return jsonify({
             'message': f'Password reset instructions: Go to AWS Identity Center console and resend invitation for user {user.username}',
             'console_url': 'https://eu-central-1.console.aws.amazon.com/singlesignon/identity/home',
-            'user_id': user.user_id
+            'aws_user_id': user.aws_user_id
         }), 200
         
     except Exception as e:
