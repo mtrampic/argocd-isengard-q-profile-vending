@@ -77,6 +77,7 @@
         <div>
             <span id="connection-status" class="status disconnected">Disconnected</span>
             <button onclick="togglePolling()" class="btn" style="font-size: 12px; padding: 5px 10px; margin-left: 10px;">Force Polling</button>
+            <button onclick="checkSSEStatus()" class="btn" style="font-size: 12px; padding: 5px 10px;">SSE Status</button>
             <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
         </div>
     </div>
@@ -459,6 +460,22 @@
             } else {
                 startFallbackPolling();
                 console.log('🔄 Forced polling started');
+            }
+        }
+
+        // Check SSE status for debugging
+        async function checkSSEStatus() {
+            try {
+                const response = await fetch('/api/sse-status');
+                if (response.ok) {
+                    const status = await response.json();
+                    console.log('📊 SSE Status:', status);
+                    alert(`SSE Status:\n\nActive Connections: ${status.active_connections}\nTotal Events: ${status.total_events}\nRecent Events: ${JSON.stringify(status.recent_events, null, 2)}`);
+                } else {
+                    console.error('❌ Failed to get SSE status');
+                }
+            } catch (error) {
+                console.error('❌ Error checking SSE status:', error);
             }
         }
     </script>

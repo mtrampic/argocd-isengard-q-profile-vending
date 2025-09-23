@@ -20,8 +20,10 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy(app)
 
-# Store for SSE connections
+# Store for SSE connections - using threading for real broadcast
+import threading
 sse_connections = []
+sse_lock = threading.Lock()
 sse_events = []  # Store events for all connections
 
 # User model
@@ -45,72 +47,125 @@ class User(db.Model):
 LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'vending123')
 
 def broadcast_sse(event, data):
-    """Broadcast data to all SSE connections"""
-    message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    """Broadcast data to all SSE connections using thread-safe approach"""
     print(f"🔔 SSE broadcast: {event} - {data}")
-    print(f"📊 Current events list length: {len(sse_events)}")
+    print(f"📊 Current active connections: {len(sse_connections)}")
     
-    # Add event to global events list with timestamp
+    # Add event to global events list with timestamp (for new connections)
     event_entry = {
         'event': event,
         'data': data,
         'timestamp': time.time(),
-        'id': len(sse_events)  # Simple incrementing ID
+        'id': len(sse_events)
     }
-    sse_events.append(event_entry)
     
-    print(f"✅ Event added to broadcast list: {event_entry}")
-    
-    # Keep only last 100 events to prevent memory growth
-    if len(sse_events) > 100:
-        removed = sse_events.pop(0)
-        print(f"🗑️ Removed old event: {removed}")
+    with sse_lock:
+        sse_events.append(event_entry)
+        print(f"✅ Event added to broadcast list: {event_entry}")
+        
+        # Keep only last 100 events to prevent memory growth
+        if len(sse_events) > 100:
+            removed = sse_events.pop(0)
+            print(f"🗑️ Removed old event: {removed}")
+        
+        # Immediately notify all active connections
+        dead_connections = []
+        for i, connection in enumerate(sse_connections):
+            try:
+                if hasattr(connection, 'put_nowait'):
+                    connection.put_nowait(event_entry)
+                    print(f"📤 Event sent to connection {i}")
+            except:
+                dead_connections.append(i)
+                print(f"💀 Dead connection detected: {i}")
+        
+        # Remove dead connections
+        for i in reversed(dead_connections):
+            sse_connections.pop(i)
+            print(f"🗑️ Removed dead connection {i}")
 
 @app.route('/events')
 def events():
-    """Server-Sent Events endpoint"""
-    connection_id = f"conn_{int(time.time() * 1000)}"
+    """Server-Sent Events endpoint with proper multi-user broadcasting"""
+    connection_id = f"conn_{int(time.time() * 1000)}_{threading.current_thread().ident}"
     print(f"🔌 New SSE connection: {connection_id}")
     
+    # Create a queue for this specific connection
+    connection_queue = queue.Queue()
+    
+    with sse_lock:
+        sse_connections.append(connection_queue)
+        connection_index = len(sse_connections) - 1
+        print(f"📋 Connection registered at index {connection_index}, total connections: {len(sse_connections)}")
+    
     def event_stream():
-        # Send initial connection event
-        initial_msg = f"event: connected\ndata: {json.dumps({'status': 'connected', 'connection_id': connection_id})}\n\n"
-        print(f"📤 Sending initial connection event to {connection_id}")
-        yield initial_msg
-        
-        last_heartbeat = time.time()
-        last_event_index = len(sse_events)  # Start from current position
-        print(f"📍 {connection_id} starting from event index: {last_event_index}")
-        
-        while True:
-            try:
-                # Send any new events that occurred since last check
-                current_event_count = len(sse_events)
-                if current_event_count > last_event_index:
-                    print(f"📨 {connection_id} sending {current_event_count - last_event_index} new events")
-                    for i in range(last_event_index, current_event_count):
+        try:
+            # Send initial connection event
+            initial_msg = f"event: connected\ndata: {json.dumps({'status': 'connected', 'connection_id': connection_id})}\n\n"
+            print(f"📤 Sending initial connection event to {connection_id}")
+            yield initial_msg
+            
+            last_heartbeat = time.time()
+            last_event_index = len(sse_events)  # Start from current position
+            print(f"📍 {connection_id} starting from event index: {last_event_index}")
+            
+            # Send any existing events since connection started
+            if last_event_index > 0:
+                print(f"📨 {connection_id} sending {last_event_index} historical events")
+                for i in range(max(0, last_event_index - 10), last_event_index):  # Last 10 events
+                    if i < len(sse_events):
                         event_data = sse_events[i]
                         message = f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
-                        print(f"📤 {connection_id} sending: {event_data['event']} - {event_data['data']}")
                         yield message
-                    last_event_index = current_event_count
-                
-                # Send heartbeat every 30 seconds
-                current_time = time.time()
-                if current_time - last_heartbeat > 30:
-                    heartbeat_msg = f"event: heartbeat\ndata: {json.dumps({'timestamp': current_time, 'connection_id': connection_id})}\n\n"
-                    print(f"💓 {connection_id} sending heartbeat")
-                    yield heartbeat_msg
-                    last_heartbeat = current_time
-                
-                time.sleep(1)  # Small delay to prevent busy waiting
-                
-            except GeneratorExit:
-                print(f"🔌 SSE connection closed: {connection_id}")
-                break
-            except Exception as e:
-                print(f"❌ SSE error for {connection_id}: {e}")
-                break
+            
+            while True:
+                try:
+                    # Check for new events in this connection's queue (real-time broadcasts)
+                    try:
+                        event_data = connection_queue.get_nowait()
+                        message = f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
+                        print(f"📤 {connection_id} sending real-time: {event_data['event']} - {event_data['data']}")
+                        yield message
+                        continue
+                    except queue.Empty:
+                        pass
+                    
+                    # Also check for any events added to global list (fallback)
+                    current_event_count = len(sse_events)
+                    if current_event_count > last_event_index:
+                        print(f"📨 {connection_id} sending {current_event_count - last_event_index} fallback events")
+                        for i in range(last_event_index, current_event_count):
+                            if i < len(sse_events):
+                                event_data = sse_events[i]
+                                message = f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
+                                print(f"📤 {connection_id} sending fallback: {event_data['event']} - {event_data['data']}")
+                                yield message
+                        last_event_index = current_event_count
+                    
+                    # Send heartbeat every 30 seconds
+                    current_time = time.time()
+                    if current_time - last_heartbeat > 30:
+                        heartbeat_msg = f"event: heartbeat\ndata: {json.dumps({'timestamp': current_time, 'connection_id': connection_id})}\n\n"
+                        print(f"💓 {connection_id} sending heartbeat")
+                        yield heartbeat_msg
+                        last_heartbeat = current_time
+                    
+                    time.sleep(0.1)  # Much faster polling for real-time feel
+                    
+                except GeneratorExit:
+                    print(f"🔌 SSE connection closed: {connection_id}")
+                    break
+                except Exception as e:
+                    print(f"❌ SSE error for {connection_id}: {e}")
+                    break
+        finally:
+            # Clean up connection
+            with sse_lock:
+                try:
+                    sse_connections.remove(connection_queue)
+                    print(f"🧹 Cleaned up connection {connection_id}")
+                except ValueError:
+                    pass
     
     response = Response(event_stream(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
@@ -151,6 +206,19 @@ def get_users():
     
     users = User.query.order_by(User.created_at.desc()).all()
     return jsonify([user.to_dict() for user in users])
+
+@app.route('/api/sse-status', methods=['GET'])
+def sse_status():
+    """Get SSE connection status for debugging"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    with sse_lock:
+        return jsonify({
+            'active_connections': len(sse_connections),
+            'total_events': len(sse_events),
+            'recent_events': sse_events[-5:] if sse_events else []
+        })
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
