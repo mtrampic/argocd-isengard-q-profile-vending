@@ -147,6 +147,34 @@ def create_user():
     except Exception as e:
         return jsonify({'error': f'Failed to create user: {str(e)}'}), 500
 
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Delete from AWS Identity Center if user_id exists
+        if user.user_id:
+            try:
+                client_ic = boto3.client('identitystore', region_name='eu-central-1')
+                client_ic.delete_user(
+                    IdentityStoreId='d-99676ce775',
+                    UserId=user.user_id
+                )
+            except Exception as e:
+                print(f"Warning: Failed to delete from Identity Center: {e}")
+        
+        # Delete from database
+        db.session.delete(user)
+        db.session.commit()
+        
+        # Broadcast via SSE
+        broadcast_sse('user_deleted', {'id': user_id})
+        
+        return jsonify({'message': 'User deleted successfully'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete user: {str(e)}'}), 500
+
 def create_identity_center_user(username, email, first_name, last_name):
     """Create user in AWS Identity Center using boto3"""
     try:
@@ -180,12 +208,11 @@ def health():
     return {'status': 'healthy', 'service': 'q-profile-vending'}
 
 def init_db_with_retry(max_retries=30, delay=2):
-    """Initialize database with retry logic and handle schema migrations"""
+    """Initialize database with retry logic - only create tables if they don't exist"""
     for attempt in range(max_retries):
         try:
             with app.app_context():
-                # Drop and recreate tables to handle schema changes
-                db.drop_all()
+                # Only create tables if they don't exist (preserve existing data)
                 db.create_all()
             print("Database initialized successfully")
             return
