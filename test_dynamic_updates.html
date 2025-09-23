@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Table Update Examples</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 20px; }
+        .example { border: 1px solid #ddd; margin: 20px 0; padding: 20px; border-radius: 8px; }
+        .example h3 { margin-top: 0; color: #007bff; }
+        .status { padding: 5px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .btn { background: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .btn:hover { background: #0056b3; }
+        .highlight { background-color: #d4edda !important; transition: background-color 2s; }
+    </style>
+</head>
+<body>
+    <h1>Dynamic Table Update Examples</h1>
+    <p>This page demonstrates different approaches for updating tables without page refresh.</p>
+
+    <!-- Server-Sent Events Example -->
+    <div class="example">
+        <h3>1. Server-Sent Events (SSE) - Real-time Push</h3>
+        <p><strong>Best for:</strong> Real-time updates, multiple users, instant notifications</p>
+        <p><strong>Pros:</strong> Instant updates, server push, efficient, persistent connection</p>
+        <p><strong>Cons:</strong> Requires SSE support, connection can drop</p>
+        
+        <div>
+            Connection Status: <span id="sse-status" class="status disconnected">Disconnected</span>
+            <button onclick="connectSSE()" class="btn">Connect SSE</button>
+            <button onclick="addUser('sse')" class="btn">Add User</button>
+        </div>
+        
+        <table id="sse-table">
+            <thead><tr><th>ID</th><th>Username</th><th>Added At</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Polling Example -->
+    <div class="example">
+        <h3>2. Polling - Regular Fetch Updates</h3>
+        <p><strong>Best for:</strong> Simple implementation, fallback mechanism, less critical updates</p>
+        <p><strong>Pros:</strong> Simple, reliable, works everywhere</p>
+        <p><strong>Cons:</strong> Less efficient, not instant, server load</p>
+        
+        <div>
+            Polling Status: <span id="poll-status" class="status disconnected">Stopped</span>
+            <button onclick="startPolling()" class="btn">Start Polling</button>
+            <button onclick="stopPolling()" class="btn">Stop Polling</button>
+            <button onclick="addUser('poll')" class="btn">Add User</button>
+        </div>
+        
+        <table id="poll-table">
+            <thead><tr><th>ID</th><th>Username</th><th>Added At</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- WebSocket Example -->
+    <div class="example">
+        <h3>3. WebSockets - Bidirectional Real-time</h3>
+        <p><strong>Best for:</strong> Interactive applications, gaming, chat, complex real-time features</p>
+        <p><strong>Pros:</strong> Bidirectional, very fast, full duplex</p>
+        <p><strong>Cons:</strong> More complex, requires WebSocket server, connection management</p>
+        
+        <div>
+            WebSocket Status: <span id="ws-status" class="status disconnected">Disconnected</span>
+            <button onclick="connectWebSocket()" class="btn">Connect WebSocket</button>
+            <button onclick="addUser('ws')" class="btn">Add User</button>
+        </div>
+        
+        <table id="ws-table">
+            <thead><tr><th>ID</th><th>Username</th><th>Added At</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Manual Refresh Example -->
+    <div class="example">
+        <h3>4. Manual Refresh Button</h3>
+        <p><strong>Best for:</strong> Simple applications, when users expect manual control</p>
+        <p><strong>Pros:</strong> Simple, user controlled, no background connections</p>
+        <p><strong>Cons:</strong> Manual action required, not real-time</p>
+        
+        <div>
+            <button onclick="refreshManual()" class="btn">Refresh Table</button>
+            <button onclick="addUser('manual')" class="btn">Add User</button>
+        </div>
+        
+        <table id="manual-table">
+            <thead><tr><th>ID</th><th>Username</th><th>Added At</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        // Simulated data store
+        let userData = {
+            sse: [],
+            poll: [],
+            ws: [],
+            manual: []
+        };
+        let userIdCounter = 1;
+        let pollInterval = null;
+        let eventSource = null;
+        let websocket = null;
+
+        // SSE Implementation
+        function connectSSE() {
+            if (eventSource) eventSource.close();
+            
+            // Simulate SSE connection (in real app, this would connect to /events)
+            document.getElementById('sse-status').textContent = 'Connected';
+            document.getElementById('sse-status').className = 'status connected';
+            
+            // Simulate receiving events
+            setInterval(() => {
+                if (Math.random() < 0.1) { // 10% chance every second
+                    const user = createRandomUser('sse');
+                    addUserToTable('sse-table', user);
+                }
+            }, 1000);
+        }
+
+        // Polling Implementation
+        function startPolling() {
+            if (pollInterval) return;
+            
+            document.getElementById('poll-status').textContent = 'Polling...';
+            document.getElementById('poll-status').className = 'status connected';
+            
+            pollInterval = setInterval(async () => {
+                // Simulate API call
+                const users = userData.poll;
+                refreshTable('poll-table', users);
+            }, 3000); // Poll every 3 seconds
+        }
+
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            document.getElementById('poll-status').textContent = 'Stopped';
+            document.getElementById('poll-status').className = 'status disconnected';
+        }
+
+        // WebSocket Implementation
+        function connectWebSocket() {
+            // Simulate WebSocket connection
+            document.getElementById('ws-status').textContent = 'Connected';
+            document.getElementById('ws-status').className = 'status connected';
+            
+            // Simulate receiving WebSocket messages
+            setInterval(() => {
+                if (Math.random() < 0.15) { // 15% chance every second
+                    const user = createRandomUser('ws');
+                    addUserToTable('ws-table', user);
+                }
+            }, 1000);
+        }
+
+        // Manual refresh
+        function refreshManual() {
+            const users = userData.manual;
+            refreshTable('manual-table', users);
+        }
+
+        // Helper functions
+        function createRandomUser(type) {
+            const names = ['alice', 'bob', 'charlie', 'diana', 'eve', 'frank'];
+            const name = names[Math.floor(Math.random() * names.length)] + userIdCounter;
+            const user = {
+                id: userIdCounter++,
+                username: name,
+                addedAt: new Date().toLocaleTimeString()
+            };
+            userData[type].push(user);
+            return user;
+        }
+
+        function addUser(type) {
+            const user = createRandomUser(type);
+            addUserToTable(type + '-table', user);
+        }
+
+        function addUserToTable(tableId, user) {
+            const table = document.getElementById(tableId);
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const row = tbody.insertRow(0);
+            row.innerHTML = `
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td>${user.addedAt}</td>
+            `;
+            row.className = 'highlight';
+            setTimeout(() => row.className = '', 2000);
+        }
+
+        function refreshTable(tableId, users) {
+            const table = document.getElementById(tableId);
+            const tbody = table.getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+            
+            users.forEach(user => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.addedAt}</td>
+                `;
+            });
+        }
+
+        // Initialize with some sample data
+        userData.manual.push({id: userIdCounter++, username: 'initial_user', addedAt: '10:00:00'});
+        refreshManual();
+    </script>
+</body>
+</html>

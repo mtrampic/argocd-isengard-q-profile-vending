@@ -22,6 +22,7 @@ db = SQLAlchemy(app)
 
 # Store for SSE connections
 sse_connections = []
+sse_queue = queue.Queue()
 
 # User model
 class User(db.Model):
@@ -47,8 +48,7 @@ def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
     print(f"SSE broadcast: {event} - {data}")
-    # Simple approach: just print for now, will fix SSE later
-    pass
+    sse_queue.put((event, data))
 
 @app.route('/events')
 def events():
@@ -57,15 +57,32 @@ def events():
         # Send initial connection event
         yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
         
-        # Keep connection alive
+        last_heartbeat = time.time()
+        
         while True:
-            yield f"event: heartbeat\ndata: {json.dumps({'timestamp': time.time()})}\n\n"
-            time.sleep(30)
+            try:
+                # Try to get messages from queue (non-blocking)
+                try:
+                    event, data = sse_queue.get_nowait()
+                    yield f"event: {event}\ndata: {json.dumps(data)}\n\n"
+                except queue.Empty:
+                    pass
+                
+                # Send heartbeat every 30 seconds
+                current_time = time.time()
+                if current_time - last_heartbeat > 30:
+                    yield f"event: heartbeat\ndata: {json.dumps({'timestamp': current_time})}\n\n"
+                    last_heartbeat = current_time
+                
+                time.sleep(1)  # Small delay to prevent busy waiting
+                
+            except GeneratorExit:
+                break
     
     response = Response(event_stream(), mimetype='text/event-stream')
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Connection'] = 'keep-alive'
-    sse_connections.append(response)
+    response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
 @app.route('/')
@@ -92,6 +109,15 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    """Get all users as JSON"""
+    if 'logged_in' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    users = User.query.order_by(User.created_at.desc()).all()
+    return jsonify([user.to_dict() for user in users])
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
