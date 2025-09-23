@@ -43,18 +43,6 @@
         {% endif %}
     {% endwith %}
     
-    <div class="{% if caller_identity.error %}aws-error{% else %}aws-info{% endif %}">
-        <h3>AWS STS Caller Identity</h3>
-        {% if caller_identity.error %}
-            <p><strong>Error:</strong> {{ caller_identity.error }}</p>
-            <p><em>IRSA not configured or AWS credentials not available</em></p>
-        {% else %}
-            <p><strong>Account:</strong> {{ caller_identity.account }}</p>
-            <p><strong>ARN:</strong> {{ caller_identity.arn }}</p>
-            <p><strong>User ID:</strong> {{ caller_identity.user_id }}</p>
-        {% endif %}
-    </div>
-    
     <div class="card">
         <h3>Create New User in AWS Identity Center</h3>
         <form id="user-form">
@@ -132,8 +120,10 @@
         });
         
         eventSource.addEventListener('user_created', function(e) {
+            console.log('User created event received:', e.data);
             const user = JSON.parse(e.data);
-            const row = usersTable.insertRow(0);
+            const tbody = document.querySelector('#users-table tbody');
+            const row = tbody.insertRow(0);
             row.id = `user-${user.id}`;
             row.innerHTML = `
                 <td>${user.id}</td>
@@ -148,6 +138,7 @@
         });
 
         eventSource.addEventListener('user_deleted', function(e) {
+            console.log('User deleted event received:', e.data);
             const data = JSON.parse(e.data);
             const row = document.getElementById(`user-${data.id}`);
             if (row) {

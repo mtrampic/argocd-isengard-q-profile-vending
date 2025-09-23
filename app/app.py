@@ -41,19 +41,6 @@ class User(db.Model):
 # Single password authentication
 LOGIN_PASSWORD = os.environ.get('LOGIN_PASSWORD', 'vending123')
 
-def get_aws_caller_identity():
-    """Get AWS STS caller identity"""
-    try:
-        sts = boto3.client('sts')
-        response = sts.get_caller_identity()
-        return {
-            'account': response.get('Account'),
-            'arn': response.get('Arn'),
-            'user_id': response.get('UserId')
-        }
-    except Exception as e:
-        return {'error': str(e)}
-
 def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
@@ -91,8 +78,7 @@ def events():
 def index():
     if 'logged_in' in session:
         users = User.query.order_by(User.created_at.desc()).all()
-        caller_identity = get_aws_caller_identity()
-        return render_template('dashboard.html', users=users, caller_identity=caller_identity)
+        return render_template('dashboard.html', users=users)
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
