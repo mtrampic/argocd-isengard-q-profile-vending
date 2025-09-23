@@ -5,7 +5,7 @@ import json
 import time
 import queue
 import threading
-# Trigger CI workflow - final build with K8s labels + DB migration + IRSA
+# Trigger CI workflow - final build with K8s labels + DB migration + IRSA + rebuild
 import boto3
 from botocore.exceptions import ClientError
 
