@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, send_from_directory
 from datetime import datetime
 import os
 import json
@@ -367,6 +367,10 @@ def create_identity_center_user(username, email, first_name, last_name):
     except Exception as e:
         print(f"Error creating Identity Center user: {e}")
         raise e
+
+@app.route('/static/<filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
 
 @app.route('/health')
 def health():
