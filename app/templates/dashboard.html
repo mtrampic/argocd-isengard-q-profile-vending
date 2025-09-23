@@ -142,15 +142,47 @@
 
     <div class="instructions">
         <h3>🧠 Context Engineering Best Practices</h3>
-        <p>Before working with Q CLI, read this important blog post: <a href="https://blog.langchain.com/the-rise-of-context-engineering/" target="_blank" style="color: #007bff;">The Rise of Context Engineering</a></p>
-        <blockquote style="border-left: 3px solid #007bff; padding-left: 15px; margin: 15px 0; font-style: italic; color: #666;">
-            <strong>Why is context engineering important:</strong><br>
-            When agentic systems mess up, it's largely because an LLM messes up. More often than not, model mistakes are caused by inappropriate context. The context passed to the model may be bad because:
-            <ul style="margin: 10px 0;">
-                <li>There is missing context that the model needs to make the right decision</li>
-                <li>The context is formatted poorly - communication matters for LLMs just like humans</li>
+        <div style="background: #f8f9fa; border-left: 4px solid #28a745; padding: 20px; margin: 15px 0; border-radius: 4px;">
+            
+            <h4>Understanding Context in AI Tools</h4>
+            <p>Large language models are <strong>stateless</strong> - each interaction is independent. AI tools create the illusion of memory by sending your entire conversation history with each new request. However, there's a hard limit (typically ~200,000 tokens) on how much input these models can process.</p>
+
+            <h4>The Context Window Challenge</h4>
+            <p>AI tools use a <strong>sliding context window</strong>. As conversations grow, older messages "age off" and are no longer included in requests. This creates the experience that the model "forgets" earlier parts of your conversation.</p>
+
+            <h4>Why Context Matters</h4>
+            <ul>
+                <li><strong>Steer Behavior:</strong> Provide coding standards, writing guidelines, or team conventions to get output that matches your preferred style</li>
+                <li><strong>Add Knowledge:</strong> Models only know information from their training data. For newer tools, APIs, or internal processes, you must provide the relevant documentation</li>
             </ul>
-        </blockquote>
+
+            <h4>Context Management Techniques</h4>
+            <ul>
+                <li><strong>Static Knowledge Files:</strong> Team coding conventions, templates, standards that rarely change</li>
+                <li><strong>Dynamic Knowledge:</strong> Files created by the AI during tasks to maintain working notes</li>
+                <li><strong>Knowledge Bases:</strong> Searchable document indexes for large amounts of information</li>
+                <li><strong>Code-Based Knowledge:</strong> Specialized tools for navigating large codebases efficiently</li>
+            </ul>
+
+            <h4>The Goldilocks Problem</h4>
+            <p>Context management requires balance:</p>
+            <ul>
+                <li><strong>Too little context</strong> → Hallucinations and generic responses</li>
+                <li><strong>Too much context</strong> → Confusion and missed relevant information</li>
+            </ul>
+
+            <h4>Best Practices</h4>
+            <ul>
+                <li>Be aware of what's in your context at all times</li>
+                <li>Prune unnecessary files and conversation history at logical checkpoints</li>
+                <li>Provide hints or reminders to help the model find relevant information</li>
+                <li>Practice context management - it's a critical skill that improves with experience</li>
+            </ul>
+
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin-top: 15px;">
+                <strong>💡 Pro Tip:</strong> You don't need perfect context. AI models can find information in large amounts of text, but they need your help to focus on what's most relevant to your current task.
+            </div>
+        </div>
     </div>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
