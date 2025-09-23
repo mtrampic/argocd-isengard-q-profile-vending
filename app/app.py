@@ -22,7 +22,7 @@ db = SQLAlchemy(app)
 
 # Store for SSE connections
 sse_connections = []
-sse_queue = queue.Queue()
+sse_events = []  # Store events for all connections
 
 # User model
 class User(db.Model):
@@ -48,7 +48,15 @@ def broadcast_sse(event, data):
     """Broadcast data to all SSE connections"""
     message = f"event: {event}\ndata: {json.dumps(data)}\n\n"
     print(f"SSE broadcast: {event} - {data}")
-    sse_queue.put((event, data))
+    # Add event to global events list with timestamp
+    sse_events.append({
+        'event': event,
+        'data': data,
+        'timestamp': time.time()
+    })
+    # Keep only last 100 events to prevent memory growth
+    if len(sse_events) > 100:
+        sse_events.pop(0)
 
 @app.route('/events')
 def events():
@@ -58,15 +66,17 @@ def events():
         yield f"event: connected\ndata: {json.dumps({'status': 'connected'})}\n\n"
         
         last_heartbeat = time.time()
+        last_event_index = len(sse_events)  # Start from current position
         
         while True:
             try:
-                # Try to get messages from queue (non-blocking)
-                try:
-                    event, data = sse_queue.get_nowait()
-                    yield f"event: {event}\ndata: {json.dumps(data)}\n\n"
-                except queue.Empty:
-                    pass
+                # Send any new events that occurred since last check
+                current_event_count = len(sse_events)
+                if current_event_count > last_event_index:
+                    for i in range(last_event_index, current_event_count):
+                        event_data = sse_events[i]
+                        yield f"event: {event_data['event']}\ndata: {json.dumps(event_data['data'])}\n\n"
+                    last_event_index = current_event_count
                 
                 # Send heartbeat every 30 seconds
                 current_time = time.time()
