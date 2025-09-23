@@ -148,10 +148,10 @@ def create_user():
 def create_identity_center_user(username, email, first_name, last_name):
     """Create user in AWS Identity Center using boto3"""
     try:
-        client_ic = boto3.client('identitystore', region_name='us-east-1')
+        client_ic = boto3.client('identitystore', region_name='eu-central-1')
         
         response = client_ic.create_user(
-            IdentityStoreId='d-9067b4b5b8',  # Your Identity Store ID
+            IdentityStoreId='d-99676ce775',  # Correct Identity Store ID in Frankfurt
             UserName=username,
             Name={
                 'GivenName': first_name or username,
